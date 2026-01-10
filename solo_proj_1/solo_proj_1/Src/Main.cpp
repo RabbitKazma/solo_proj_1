@@ -4,6 +4,25 @@
 #include <crtdbg.h> // To check for memory leaks
 #include "AEEngine.h"
 
+AEGfxVertexList* pSquareMesh = 0;   // Standard Square Mesh for UI
+
+
+// Standard Square Mesh for UI
+void CreateSquareMesh()
+{
+	AEGfxMeshStart();
+	AEGfxTriAdd(
+		-0.5f, -0.5f, 0xFFFFFFFF, 0.0f, 1.0f,
+		0.5f, -0.5f, 0xFFFFFFFF, 1.0f, 1.0f,
+		-0.5f, 0.5f, 0xFFFFFFFF, 0.0f, 0.0f
+	);
+	AEGfxTriAdd(
+		0.5f, -0.5f, 0xFFFFFFFF, 1.0f, 1.0f,
+		0.5f, 0.5f, 0xFFFFFFFF, 1.0f, 0.0f,
+		-0.5f, 0.5f, 0xFFFFFFFF, 0.0f, 0.0f
+	);
+	pSquareMesh = AEGfxMeshEnd();
+}
 
 
 // ---------------------------------------------------------------------------
@@ -30,10 +49,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	// Changing the window title
 	AESysSetWindowTitle("My New Demo!");
 
+	CreateSquareMesh();
+
 	// reset the system modules
 	AESysReset();
 
 	printf("Hello World\n");
+
+	// Variables for Matrix 
+	AEMtx33 scale, trans, transform;
 
 	// Game Loop
 	while (gGameRunning)
@@ -57,7 +81,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	}
 
-
+	AEGfxMeshFree(pSquareMesh);
 	// free the system
 	AESysExit();
 }
