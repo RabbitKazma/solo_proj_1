@@ -7,19 +7,35 @@
 AEGfxVertexList* pSquareMesh = 0;   // Standard Square Mesh for UI
 
 // Player Properties 
-float playerX = 0.0f;
-float playerY = 0.0f;
-float playerRadius = 25.0f;       // Radius for collision
-float playerHealth = 100.0f;
-float const MAX_HEALTH = 100.0f;
-float const PlAYER_SPEED = 200.0f;
+f32 playerX = 0.0f;
+f32 playerY = 0.0f;
+f32 playerRadiusX = 25.0f;       // Radius for collision
+f32 playerRadiusY = 25.0f;
+f32 playerHealth = 100.0f;
+f32 const MAX_HEALTH = 100.0f;
+f32 const PlAYER_SPEED = 200.0f;
 
 //Variables for Zone
-const float zoneRadius = 300.0f;
-const float zoneLeftX = -300.0f;
-const float zoneLeftY = 0.0f;
-const float zoneRightX = 300.0f;
-const float zoneRightY = 0.0f;
+f32 const zoneRadiusX = 300.0f;
+f32 const zoneRadiusY = 300.0f;
+f32 const zoneLeftX = -300.0f;
+f32 const zoneLeftY = 0.0f;
+f32 const zoneRightX = 300.0f;
+f32 const zoneRightY = 0.0f;
+
+
+f32 const healthbarscaleX = 1000.0f;
+f32 const healthbarscaleY = 50.0f;
+f32 const healthbarposX = 0.0f;
+f32 const healthbarposY = 300.0f;
+
+f32 const healthiconscaleX = 50.0f;
+f32 const healthiconscaleY = 50.0f;
+f32 const healthiconposX = -500.0f;
+f32 const healthiconposY = 200.0f;
+
+f32 healthDecrease = 0.0f;
+
 
 // Standard Square Mesh for UI
 void CreateSquareMesh()
@@ -71,7 +87,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	printf("Hello World\n");
 
 	// Variables for Matrix 
-	AEMtx33 scale{}, trans{}, transform{};
+	AEMtx33 scale{0}, trans{0}, transform{0};
 
 	// Game Loop
 	while (gGameRunning)
@@ -85,7 +101,38 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			gGameRunning = 0;
 
 		// Your own update logic goes here
-		float deltaTime = (float)AEFrameRateControllerGetFrameTime();
+		float deltaTime = AEFrameRateControllerGetFrameTime();
+
+		if (AEInputCheckCurr(AEVK_W)) {
+			printf("W key pressed");
+			playerY += deltaTime * PlAYER_SPEED;
+		}
+
+		if (AEInputCheckCurr(AEVK_S)) {
+			printf("S key pressed");
+			playerY -= deltaTime * PlAYER_SPEED;
+		}
+
+		if (AEInputCheckCurr(AEVK_A)) {
+			printf("A key pressed");
+			playerX -= deltaTime * PlAYER_SPEED;
+		}
+
+		if (AEInputCheckCurr(AEVK_D)) {
+			printf("D key pressed");
+			playerX += deltaTime * PlAYER_SPEED;
+		}
+
+		f32 diff_X = playerRadiusX - zoneRightX;
+		f32	diff_Y = playerRadiusY - zoneRightY;
+
+		//a square + b square <= square
+		if ((diff_X && diff_Y) <= 0 ) 
+		{
+			printf("test");
+			healthDecrease = 30.0f;
+		}
+
 
 
 		// Your own rendering logic goes here
@@ -94,16 +141,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		AEGfxSetBlendMode(AE_GFX_BM_BLEND);
 
 		// 1. Draw Left Zone (Red)
-		AEGfxSetColorToMultiply(1.0f, 0.0f, 0.0f, 0.5f); // Red Tint
-		AEMtx33Scale(&scale, zoneRadius, zoneRadius);
+		AEGfxSetColorToMultiply(1.0f, 0.0f, 0.0f, 1.0f); // Red Tint
+		AEMtx33Scale(&scale, zoneRadiusX, zoneRadiusY);
 		AEMtx33Trans(&trans, zoneLeftX, zoneLeftY);
 		AEMtx33Concat(&transform, &trans, &scale); // Order: Translate * Scale
+
 		AEGfxSetTransform(transform.m);
 		AEGfxMeshDraw(pSquareMesh, AE_GFX_MDM_TRIANGLES);
 
 		// 2. Draw Right Zone (Green)
-		AEGfxSetColorToMultiply(0.0f, 1.0f, 0.0f, 0.5f); // Green Tint
-		AEMtx33Scale(&scale, zoneRadius, zoneRadius);
+		AEGfxSetColorToMultiply(0.0f, 1.0f, 0.0f, 1.0f); // Green Tint
+		AEMtx33Scale(&scale, zoneRadiusX, zoneRadiusY);
 		AEMtx33Trans(&trans, zoneRightX, zoneRightY);
 		AEMtx33Concat(&transform, &trans, &scale);
 		AEGfxSetTransform(transform.m);
@@ -111,7 +159,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 		// 3. Draw Player (Blue)
 		AEGfxSetColorToMultiply(0.0f, 0.5f, 1.0f, 1.0f); // Blue Tint
-		AEMtx33Scale(&scale, playerRadius, playerRadius);
+		AEMtx33Scale(&scale, playerRadiusX, playerRadiusY);
 		AEMtx33Trans(&trans, playerX, playerY);
 		AEMtx33Concat(&transform, &trans, &scale);
 		AEGfxSetTransform(transform.m);
@@ -119,57 +167,27 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 
 		// --- UI Rendering ---
-
-		float uiBarX = 0.0f;
-		float uiBarY = 350.0f;
-		float uiFullWidth = 400.0f;
-		float uiHeight = 30.0f;
-
-		// 4. Draw Health Bar Background (Grey)
-		// This remains centered because it is the static container
-		AEGfxSetColorToMultiply(0.3f, 0.3f, 0.3f, 1.0f);
-		AEMtx33Scale(&scale, uiFullWidth, uiHeight);
-		AEMtx33Trans(&trans, uiBarX, uiBarY);
-		AEMtx33Concat(&transform, &trans, &scale);
-		AEGfxSetTransform(transform.m);
-		AEGfxMeshDraw(pSquareMesh, AE_GFX_MDM_TRIANGLES);
-
-		// 5. Draw Active Health Bar (Red) - LEFT ALIGNED SCALING
-		float currentBarWidth = (playerHealth / MAX_HEALTH) * uiFullWidth;
-
-		// [Step 1] Find the fixed left edge of the full bar
-		float leftEdge = uiBarX - (uiFullWidth * 0.5f);
-
-		// [Step 2] Calculate the new center point based on the current width
-		// As width shrinks, the center moves left, keeping the left edge pinned.
-		float newCenterX = leftEdge + (currentBarWidth * 0.5f);
-
 		AEGfxSetColorToMultiply(1.0f, 0.0f, 0.0f, 1.0f);
-		AEMtx33Scale(&scale, currentBarWidth, uiHeight);
-		AEMtx33Trans(&trans, newCenterX, uiBarY); // Use newCenterX here
+		AEMtx33Scale(&scale, healthbarscaleX-healthDecrease, healthbarscaleY);
+		AEMtx33Trans(&trans, healthbarposX, healthbarposY);
 		AEMtx33Concat(&transform, &trans, &scale);
 		AEGfxSetTransform(transform.m);
 		AEGfxMeshDraw(pSquareMesh, AE_GFX_MDM_TRIANGLES);
 
-		// 6. Draw Health Icons (Rectangles)
-		int numIcons = (int)((playerHealth / MAX_HEALTH) * 10.0f);
-		float iconStartY = uiBarY - 40.0f;
 
-		// Align icons to start exactly where the bar starts
-		float iconStartX = leftEdge + 15.0f;
-		float iconSpacing = 40.0f;
 
-		for (int i = 0; i < numIcons; ++i)
-		{
-			float iconX = iconStartX + (i * iconSpacing);
+		for (int i = 0; i <= 10; ++i) {
 
-			AEGfxSetColorToMultiply(1.0f, 1.0f, 0.0f, 1.0f); // Yellow
-			AEMtx33Scale(&scale, 30.0f, 10.0f);
-			AEMtx33Trans(&trans, iconX, iconStartY);
+			AEGfxSetColorToMultiply(1.0f, 0.0f, 0.0f, 1.0f);
+			AEMtx33Scale(&scale, healthiconscaleX, healthiconscaleY);
+			AEMtx33Trans(&trans, healthiconposX + (i * 100.0f), healthiconposY);
 			AEMtx33Concat(&transform, &trans, &scale);
 			AEGfxSetTransform(transform.m);
 			AEGfxMeshDraw(pSquareMesh, AE_GFX_MDM_TRIANGLES);
 		}
+
+
+
 		// Informing the system about the loop's end
 		AESysFrameEnd();
 
