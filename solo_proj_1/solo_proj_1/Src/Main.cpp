@@ -4,37 +4,28 @@
 #include <crtdbg.h> // To check for memory leaks
 #include "AEEngine.h"
 
-AEGfxVertexList* pSquareMesh = 0;   // Standard Square Mesh for UI
+AEGfxVertexList* pCircleMesh { 0 };
+AEGfxVertexList* pSquareMesh { 0 };   // Standard Square Mesh for UI
 
 // Player Properties 
 f32 playerX = 0.0f;
 f32 playerY = 0.0f;
-f32 playerRadiusX = 25.0f;       // Radius for collision
-f32 playerRadiusY = 25.0f;
+f32 playerRadius = 25.0f;       // Radius for collision
 f32 playerHealth = 100.0f;
 f32 const MAX_HEALTH = 100.0f;
 f32 const PlAYER_SPEED = 200.0f;
 
 //Variables for Zone
-f32 const zoneRadiusX = 300.0f;
-f32 const zoneRadiusY = 300.0f;
-f32 const zoneLeftX = -300.0f;
-f32 const zoneLeftY = 0.0f;
-f32 const zoneRightX = 300.0f;
-f32 const zoneRightY = 0.0f;
+f32 const zoneRadius = 200.0f;
+f64 const zoneLeftX = -300.0f;
+f64 const zoneLeftY = 0.0f;
+f64 const zoneRightX = 300.0f;
+f64 const zoneRightY = 0.0f;
 
-
-f32 const healthbarscaleX = 1000.0f;
-f32 const healthbarscaleY = 50.0f;
-f32 const healthbarposX = 0.0f;
-f32 const healthbarposY = 300.0f;
-
-f32 const healthiconscaleX = 50.0f;
-f32 const healthiconscaleY = 50.0f;
-f32 const healthiconposX = -500.0f;
-f32 const healthiconposY = 200.0f;
-
-f32 healthDecrease = 0.0f;
+f32 const uiBarX = 0.0f;
+f32 const uiBarY = 350.0f;
+f32 const uiFullWidth = 1000.0f;
+f32 const uiHeight = 50.0f;
 
 
 // Standard Square Mesh for UI
@@ -52,6 +43,29 @@ void CreateSquareMesh()
 		-0.5f, 0.5f, 0xFFFFFFFF, 0.0f, 0.0f
 	);
 	pSquareMesh = AEGfxMeshEnd();
+}
+
+void CreateCircleMesh()
+{
+	AEGfxMeshStart();
+
+	int steps = 32;
+	float angleStep = (2.0f * 3.14159f) / (float)steps;
+
+	for (int i = 0; i < steps; ++i)
+	{
+		float theta1 = i * angleStep;
+		float theta2 = (i + 1) * angleStep;
+
+		// Center (0,0), Point A, Point B - White Color (0xFFFFFFFF)
+		AEGfxTriAdd(
+			0.0f, 0.0f, 0xFFFFFFFF, 0.0f, 0.0f,
+			cosf(theta1), sinf(theta1), 0xFFFFFFFF, 0.0f, 0.0f,
+			cosf(theta2), sinf(theta2), 0xFFFFFFFF, 0.0f, 0.0f
+		);
+	}
+
+	pCircleMesh = AEGfxMeshEnd();
 }
 
 
@@ -80,6 +94,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	AESysSetWindowTitle("Solo Project");
 
 	CreateSquareMesh();
+	CreateCircleMesh();
 
 	// reset the system modules
 	AESysReset();
@@ -101,37 +116,45 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			gGameRunning = 0;
 
 		// Your own update logic goes here
-		float deltaTime = AEFrameRateControllerGetFrameTime();
+		double deltaTime = AEFrameRateControllerGetFrameTime();
 
 		if (AEInputCheckCurr(AEVK_W)) {
 			printf("W key pressed");
-			playerY += deltaTime * PlAYER_SPEED;
+			playerY += f32(deltaTime) * PlAYER_SPEED;
 		}
 
 		if (AEInputCheckCurr(AEVK_S)) {
 			printf("S key pressed");
-			playerY -= deltaTime * PlAYER_SPEED;
+			playerY -= f32(deltaTime) * PlAYER_SPEED;
 		}
 
 		if (AEInputCheckCurr(AEVK_A)) {
 			printf("A key pressed");
-			playerX -= deltaTime * PlAYER_SPEED;
+			playerX -= f32(deltaTime) * PlAYER_SPEED;
 		}
 
 		if (AEInputCheckCurr(AEVK_D)) {
 			printf("D key pressed");
-			playerX += deltaTime * PlAYER_SPEED;
+			playerX += f32(deltaTime) * PlAYER_SPEED;
 		}
 
-		f32 diff_X = playerRadiusX - zoneRightX;
-		f32	diff_Y = playerRadiusY - zoneRightY;
-
-		//a square + b square <= square
-		if ((diff_X && diff_Y) <= 0 ) 
+		// 1. Check Left Zone (Damage)
+		f64 distLeft = (playerX - zoneLeftX) * (playerX - zoneLeftX)  + (playerY - zoneLeftY)  * (playerY - zoneLeftY);
+		if (distLeft < ((playerRadius + zoneRadius) * (playerRadius + zoneRadius)))
 		{
-			printf("test");
-			healthDecrease = 30.0f;
+			playerHealth += 20.0f * f32(deltaTime);
 		}
+
+		// 2. Check Right Zone (Heal)
+		f64 distRight = (playerX - zoneRightX) * (playerX - zoneRightX) + (playerY - zoneRightY) * (playerY - zoneRightY);
+		if (distRight < ((playerRadius + zoneRadius) * (playerRadius + zoneRadius)))
+		{
+			playerHealth -= 20.0f * f32(deltaTime);
+		}
+
+		// Clamp Health
+		if (playerHealth < 0.0f) playerHealth = 0.0f;
+		if (playerHealth > MAX_HEALTH) playerHealth = MAX_HEALTH;
 
 
 
@@ -141,46 +164,75 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		AEGfxSetBlendMode(AE_GFX_BM_BLEND);
 
 		// 1. Draw Left Zone (Red)
-		AEGfxSetColorToMultiply(1.0f, 0.0f, 0.0f, 1.0f); // Red Tint
-		AEMtx33Scale(&scale, zoneRadiusX, zoneRadiusY);
+		AEGfxSetColorToMultiply(0.0f, 1.0f, 0.0f, 1.0f); // Red Tint
+		AEMtx33Scale(&scale, zoneRadius, zoneRadius);
 		AEMtx33Trans(&trans, zoneLeftX, zoneLeftY);
 		AEMtx33Concat(&transform, &trans, &scale); // Order: Translate * Scale
 
 		AEGfxSetTransform(transform.m);
-		AEGfxMeshDraw(pSquareMesh, AE_GFX_MDM_TRIANGLES);
+		AEGfxMeshDraw(pCircleMesh, AE_GFX_MDM_TRIANGLES);
 
 		// 2. Draw Right Zone (Green)
-		AEGfxSetColorToMultiply(0.0f, 1.0f, 0.0f, 1.0f); // Green Tint
-		AEMtx33Scale(&scale, zoneRadiusX, zoneRadiusY);
+		AEGfxSetColorToMultiply(1.0f, 0.0f, 0.0f, 1.0f); // Green Tint
+		AEMtx33Scale(&scale, zoneRadius, zoneRadius);
 		AEMtx33Trans(&trans, zoneRightX, zoneRightY);
 		AEMtx33Concat(&transform, &trans, &scale);
 		AEGfxSetTransform(transform.m);
-		AEGfxMeshDraw(pSquareMesh, AE_GFX_MDM_TRIANGLES);
+		AEGfxMeshDraw(pCircleMesh, AE_GFX_MDM_TRIANGLES);
 
 		// 3. Draw Player (Blue)
 		AEGfxSetColorToMultiply(0.0f, 0.5f, 1.0f, 1.0f); // Blue Tint
-		AEMtx33Scale(&scale, playerRadiusX, playerRadiusY);
+		AEMtx33Scale(&scale, playerRadius, playerRadius);
 		AEMtx33Trans(&trans, playerX, playerY);
 		AEMtx33Concat(&transform, &trans, &scale);
 		AEGfxSetTransform(transform.m);
-		AEGfxMeshDraw(pSquareMesh, AE_GFX_MDM_TRIANGLES);
+		AEGfxMeshDraw(pCircleMesh, AE_GFX_MDM_TRIANGLES);
 
 
 		// --- UI Rendering ---
+
+
+		// 4. Draw Health Bar Background (Grey)
+		// This remains centered because it is the static container
 		AEGfxSetColorToMultiply(1.0f, 0.0f, 0.0f, 1.0f);
-		AEMtx33Scale(&scale, healthbarscaleX-healthDecrease, healthbarscaleY);
-		AEMtx33Trans(&trans, healthbarposX, healthbarposY);
+		AEMtx33Scale(&scale, uiFullWidth, uiHeight);
+		AEMtx33Trans(&trans, uiBarX, uiBarY);
 		AEMtx33Concat(&transform, &trans, &scale);
 		AEGfxSetTransform(transform.m);
 		AEGfxMeshDraw(pSquareMesh, AE_GFX_MDM_TRIANGLES);
 
+		// 5. Draw Active Health Bar (Red) - LEFT ALIGNED SCALING
+		f32 currentBarWidth = (playerHealth / MAX_HEALTH) * uiFullWidth;
 
+		// [Step 1] Find the fixed left edge of the full bar
+		float leftEdge = uiBarX - (uiFullWidth * 0.5f);
 
-		for (int i = 0; i <= 10; ++i) {
+		// [Step 2] Calculate the new center point based on the current width
+		// As width shrinks, the center moves left, keeping the left edge pinned.
+		f32 newCenterX = leftEdge + (currentBarWidth * 0.5f);
 
-			AEGfxSetColorToMultiply(1.0f, 0.0f, 0.0f, 1.0f);
-			AEMtx33Scale(&scale, healthiconscaleX, healthiconscaleY);
-			AEMtx33Trans(&trans, healthiconposX + (i * 100.0f), healthiconposY);
+		AEGfxSetColorToMultiply(0.0f, 1.0f, 0.0f, 1.0f);
+		AEMtx33Scale(&scale, currentBarWidth, uiHeight);
+		AEMtx33Trans(&trans, newCenterX, uiBarY); // Use newCenterX here
+		AEMtx33Concat(&transform, &trans, &scale);
+		AEGfxSetTransform(transform.m);
+		AEGfxMeshDraw(pSquareMesh, AE_GFX_MDM_TRIANGLES);
+
+		// 6. Draw Health Icons (Rectangles)
+		int numIcons = (int)((playerHealth / MAX_HEALTH) * 10.0f);
+		float iconStartY = uiBarY - 80.0f;
+
+		// Align icons to start exactly where the bar starts
+		float iconStartX = leftEdge + 200.0f;
+		float iconSpacing = 70.0f;
+
+		for (int i = 0; i < numIcons; ++i)
+		{
+			float iconX = iconStartX + (i * iconSpacing);
+
+			AEGfxSetColorToMultiply(1.0f, 0.0f, 0.0f, 1.0f); // Yellow
+			AEMtx33Scale(&scale, 50.0f, 30.0f);
+			AEMtx33Trans(&trans, iconX, iconStartY);
 			AEMtx33Concat(&transform, &trans, &scale);
 			AEGfxSetTransform(transform.m);
 			AEGfxMeshDraw(pSquareMesh, AE_GFX_MDM_TRIANGLES);
@@ -193,7 +245,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	}
 
-	if(pSquareMesh) AEGfxMeshFree(pSquareMesh);
+	if (pSquareMesh) AEGfxMeshFree(pSquareMesh);
+	if (pCircleMesh) AEGfxMeshFree(pCircleMesh);
 	// free the system
 	AESysExit();
 }
